@@ -10,28 +10,26 @@ import CoreData
 
 class ViewController: UIViewController, UITableViewDelegate, UITableViewDataSource {
     
+    let managedContext = (UIApplication.shared.delegate as! AppDelegate).persistentContainer.viewContext
+    
     @IBOutlet weak var tournamentsTable: UITableView!
     var tournaments: [NSManagedObject] = []
     
     override func viewDidLoad() {
         super.viewDidLoad()
-        fetchData(entity: "Tournament")
+        fetchData()
         configureTableView()
     }
     
-    func fetchData(entity: String) {
-        guard let appDelegate =
-            UIApplication.shared.delegate as? AppDelegate else {
-              return
-          }
-          
-        let managedContext =
-            appDelegate.persistentContainer.viewContext
-        
-        let fetchRequest = NSFetchRequest<NSManagedObject>(entityName: entity)
+    func fetchData() {
+//        let fetchRequest = NSFetchRequest<NSManagedObject>(entityName: entity)
           
         do {
-          tournaments = try managedContext.fetch(fetchRequest)
+            self.tournaments = try managedContext.fetch(Tournament.fetchRequest())
+            
+            DispatchQueue.main.async {
+                self.tournamentsTable.reloadData()
+            }
         } catch let error as NSError {
         print("Could not fetch. \(error), \(error.userInfo)")
         }
@@ -57,14 +55,6 @@ class ViewController: UIViewController, UITableViewDelegate, UITableViewDataSour
     }
     
     func saveTournament(country: String, city: String) {
-        guard let appDelegate =
-            UIApplication.shared.delegate as? AppDelegate else {
-              return
-          }
-          
-        let managedContext =
-            appDelegate.persistentContainer.viewContext
-        
         // create new managed object
         guard let tournamentEntity = NSEntityDescription.entity(forEntityName: "Tournament", in: managedContext) else { return }
         let tournament = NSManagedObject(entity: tournamentEntity, insertInto: managedContext)
@@ -76,10 +66,12 @@ class ViewController: UIViewController, UITableViewDelegate, UITableViewDataSour
         // save managed object into the persistent container
         do {
             try managedContext.save()
-            tournaments.append(tournament)
         } catch let error as NSError {
             print("could not save data. \(error), \(error.userInfo)")
         }
+        
+        // re-fetch data
+        fetchData()
     }
     
     func configureTableView() {
@@ -104,39 +96,67 @@ class ViewController: UIViewController, UITableViewDelegate, UITableViewDataSour
         return cell
     }
     
-//    func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
-//        let alert = UIAlertController(title: "Edit Tournament", message: "", preferredStyle: .alert)
-//        alert.addTextField()
-//        alert.addTextField()
-//        alert.textFields?[0].text = tournaments[indexPath.row].value(forKeyPath: "country") as! String
-//        alert.textFields?[1].text = tournaments[indexPath.row].value(forKeyPath: "city") as! String
-//        let saveButton = UIAlertAction(title: "Save", style: .default) { [unowned self] action in
-//            guard let country = alert.textFields?[0].text, let city = alert.textFields?[1].text else {
-//                return
-//            }
-//            tournaments[indexPath.row].country = country
-//            tournaments[indexPath.row].city = city
-//            tournamentsTable.reloadData()
-//        }
-//        let cancelButton = UIAlertAction(title: "Cancel", style: .destructive)
-//        alert.addAction(cancelButton)
-//        alert.addAction(saveButton)
-//        present(alert, animated: true)
-//        print("cell tapped")
-//    }
-//    
-//    func tableView(_ tableView: UITableView, editingStyleForRowAt indexPath: IndexPath) -> UITableViewCell.EditingStyle {
-//        return .delete
-//    }
-//    
-//    func tableView(_ tableView: UITableView, commit editingStyle: UITableViewCell.EditingStyle, forRowAt indexPath: IndexPath) {
-//        if editingStyle == .delete {
-//            tableView.beginUpdates()
+    func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
+        let alert = UIAlertController(title: "Edit Tournament", message: "", preferredStyle: .alert)
+        alert.addTextField()
+        alert.addTextField()
+        alert.textFields![0].text = tournaments[indexPath.row].value(forKeyPath: "country") as? String
+        alert.textFields![1].text = tournaments[indexPath.row].value(forKeyPath: "city") as? String
+        let saveButton = UIAlertAction(title: "Save", style: .default) { [unowned self] action in
+            guard let country = alert.textFields?[0].text, let city = alert.textFields?[1].text else {
+                return
+            }
+            let tournamentToEdit = tournaments[indexPath.row]
+            tournamentToEdit.setValue(country, forKey: "country")
+            tournamentToEdit.setValue(city, forKey: "city")
+            
+            // save data
+            do {
+                try managedContext.save()
+            }
+            catch {
+                print("error editing tournament")
+            }
+            
+            // re-fetch data
+            fetchData()
+        }
+        let cancelButton = UIAlertAction(title: "Cancel", style: .destructive)
+        alert.addAction(cancelButton)
+        alert.addAction(saveButton)
+        present(alert, animated: true)
+        print("cell tapped")
+    }
+    
+    func tableView(_ tableView: UITableView, editingStyleForRowAt indexPath: IndexPath) -> UITableViewCell.EditingStyle {
+        return .delete
+    }
+    
+    func tableView(_ tableView: UITableView, commit editingStyle: UITableViewCell.EditingStyle, forRowAt indexPath: IndexPath) {
+        if editingStyle == .delete {
+            tableView.beginUpdates()
+            
+            // object to delete
+            let tournamentToDelete = tournaments[indexPath.row]
+            
+            // delete object
+            managedContext.delete(tournamentToDelete)
 //            tournaments.remove(at: indexPath.row)
-//            tableView.deleteRows(at: [indexPath], with: .right)
-//            tableView.endUpdates()
-//        }
-//    }
+            // save data
+            do {
+                try managedContext.save()
+            }
+            catch {
+                print("error in delete")
+            }
+            
+            // fetch data
+            tableView.deleteRows(at: [indexPath], with: .right)
+            fetchData()
+            
+            tableView.endUpdates()
+        }
+    }
     
 }
 
