@@ -10,14 +10,31 @@ import CoreData
 
 class ViewController: UIViewController, UITableViewDelegate, UITableViewDataSource {
     
-    let managedContext = (UIApplication.shared.delegate as? AppDelegate)?.persistentContainer.viewContext
-    
     @IBOutlet weak var tournamentsTable: UITableView!
     var tournaments: [NSManagedObject] = []
     
     override func viewDidLoad() {
         super.viewDidLoad()
+        fetchData(entity: "Tournament")
         configureTableView()
+    }
+    
+    func fetchData(entity: String) {
+        guard let appDelegate =
+            UIApplication.shared.delegate as? AppDelegate else {
+              return
+          }
+          
+        let managedContext =
+            appDelegate.persistentContainer.viewContext
+        
+        let fetchRequest = NSFetchRequest<NSManagedObject>(entityName: entity)
+          
+        do {
+          tournaments = try managedContext.fetch(fetchRequest)
+        } catch let error as NSError {
+        print("Could not fetch. \(error), \(error.userInfo)")
+        }
     }
 
     @IBAction func addTournament(_ sender: UIBarButtonItem) {
@@ -40,8 +57,16 @@ class ViewController: UIViewController, UITableViewDelegate, UITableViewDataSour
     }
     
     func saveTournament(country: String, city: String) {
+        guard let appDelegate =
+            UIApplication.shared.delegate as? AppDelegate else {
+              return
+          }
+          
+        let managedContext =
+            appDelegate.persistentContainer.viewContext
+        
         // create new managed object
-        let tournamentEntity = NSEntityDescription.entity(forEntityName: "Tournament", in: managedContext!)!
+        guard let tournamentEntity = NSEntityDescription.entity(forEntityName: "Tournament", in: managedContext) else { return }
         let tournament = NSManagedObject(entity: tournamentEntity, insertInto: managedContext)
         
         // set the managed object
@@ -50,7 +75,7 @@ class ViewController: UIViewController, UITableViewDelegate, UITableViewDataSour
         
         // save managed object into the persistent container
         do {
-            try managedContext?.save()
+            try managedContext.save()
             tournaments.append(tournament)
         } catch let error as NSError {
             print("could not save data. \(error), \(error.userInfo)")
